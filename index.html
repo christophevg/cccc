@@ -1,0 +1,172 @@
+<html>
+  <script src="js/ajax.js"></script>
+  <script src="js/svg.js"></script>
+<body>
+  <h1>CCCC - Chaos Communication Camp Counter</h1>
+
+  <p>This is just a little bit of fun, trying to compute the number of hackers
+  that will roam <a href="https://events.ccc.de/camp/2015">CCC15</a>. Based on
+  the information found in the <a
+  href="https://tickets.events.ccc.de/graph/">target graphs</a>, I want to try
+  to estimate the number of tickets sold, just to enjoy the vast growing amount
+  of hackers I will share the camp grounds with.</p>
+  
+  <p>On the other hand, its also a case pro Open Data. It's an example of the
+  not so cool way of doing things these days. In stead of publishing a json
+  file with the data (# of tickets per category, # of t-shirts per category)
+  and computing a rendering on the client-size, the data is mangled into one
+  representation on the server side, requiring other consumers to reengineer
+  the representation to an approximation of the original data.</p>
+  
+  <p>I thought hackers would be on the forefront of the openness of where the
+  web is heading. Seems I'm wrong :-(</p>
+  
+  <p>Finally, it's also an excuse to have a little fun with JavaScript again,
+  after a long time, exercising a bit for things to come :-)</p>
+
+  <h2>Data</h2>
+
+  <p>The following tables contain the latest data, extracted from the published
+  SVG graphs.</p>
+  
+  <h3>Revenue</h3>
+  <table border="1">
+    <thead><tr><th>subject</th><th>&euro;</th></tr></thead>
+    <tbody id="table"></tbody>
+  </table>
+  
+  <h3>Average Ticket Price...</h3>
+
+  <p>... is currently computed to &euro;<span id="avg-ticket-price"></span></p>
+  
+  <h3>Estimation Time</h3>
+  
+  <p>Let's go from very basic to more specific...</p>
+  
+  <h4>The very rough one</h4>
+
+  <p>Summing the different ticket revenues, dividing it by the average price,
+  gives us a rough estimate of the number of tickets sold. The total in ticket
+  revenue is &euro;<span id="total-ticket-revenue"></span>. This brings the
+  rough estimate to <b><span id="rough-estimate"></span> campers</b>. </p>
+  
+  <h4>Taking into Account the Categories</h4>
+  
+  <p>But different ticket prices are in effect. The goal is to allow those who
+  can to <i>chip</i> a bit for those who can't. I think that's commendable. But
+  it also means that some payments count for more tickets. Let's start with
+  taking into account the categories and come up with an interval.</p>
+  
+  <p><i>more to come...</i></p>
+  
+</body>
+
+<script>
+(function() {
+  
+  var labels = {};  // mapping serie-x : label
+  var values = {};  // mapping serie-x : value
+
+  var avg_ticket_price = 0;
+  var ticket_revenue   = 0;
+
+  function chart_single_processor(svg) {
+    var doc = Svg.parse(svg);
+    
+    // extract series from legend
+    var legends = doc.getElementsByClassName("legend reactive activate-serie");
+    for(var i=0; i<legends.length; i++) {
+      var serie = legends[i].id.replace("activate-", "");
+      var label;
+      label = legends[i].getElementsByTagName("title");
+      if(label.length > 0) {
+        label = label[0].textContent;
+      } else { 
+        label = legends[i].getElementsByTagName("text")[0].textContent;
+      }
+      labels[serie] = label;
+    }
+
+    // get most recent value
+    var overlays = doc.getElementsByClassName("plot overlay")[0]
+                      .getElementsByClassName("series");
+    for(var i=0; i<overlays.length; i++) {
+      // -> let's believe the series are named serie-x ;-)
+      var serie = overlays[i].className.baseVal.match(/serie-[0-9]/)[0];
+      var dots  = overlays[i].getElementsByClassName("dots");
+      // only last value -> let's believe that they are ordered ;-)
+      values[serie] = parseInt(
+        dots[dots.length-1].getElementsByClassName("value")[0].textContent
+      );
+    }
+
+    // now get rest of data
+    Ajax.using(chart_avg_processor).fetch("chart_avg.svg");
+  }
+  
+  function chart_avg_processor(svg) {
+    var doc = Svg.parse(svg);
+
+    var series = doc.getElementsByClassName("plot overlay")[0]
+                    .getElementsByClassName("series")[0]
+                    .getElementsByClassName("dots");
+    avg_ticket_price = parseFloat(
+      series[series.length-1].getElementsByClassName("value")[0].textContent
+    );
+  
+    // now compute and render results
+    process_data();
+  }
+  
+  function process_data() {
+    render_totals_table();
+    render_avg_ticket_price();
+    compute_and_render_ticket_revenue();
+    compute_and_render_rought_estimate();
+  }
+
+  function render_totals_table() {
+    // render table
+    var table = document.getElementById("table");
+    for(var serie in labels) {
+      var row        = document.createElement("TR"),
+          label_cell = document.createElement("TD"),
+          label_text = document.createTextNode(labels[serie]),
+          value_cell = document.createElement("TD"),
+          value_text = document.createTextNode(values[serie]);
+      label_cell.appendChild(label_text);
+      value_cell.appendChild(value_text);
+      row.appendChild(label_cell);
+      row.appendChild(value_cell);
+      table.appendChild(row);
+    }
+  }
+  
+  function render_avg_ticket_price() {
+    var avg_ticket_price_text = document.createTextNode(avg_ticket_price);
+    document.getElementById("avg-ticket-price")
+            .appendChild(avg_ticket_price_text);
+  }
+  
+  function compute_and_render_ticket_revenue() {
+    for(var serie in labels) {
+      // yeah, could have done this before, but the loop is small ;-)
+      ticket_revenue += values[serie];
+    }
+    var total_text = document.createTextNode(ticket_revenue);
+    document.getElementById("total-ticket-revenue").appendChild(total_text);
+  }
+
+  function compute_and_render_rought_estimate() {
+    var rough_estimate = Math.ceil(ticket_revenue / avg_ticket_price);
+    var rough_estimate_text = document.createTextNode(rough_estimate);
+    document.getElementById("rough-estimate").appendChild(rough_estimate_text);
+  }
+
+
+  Ajax.with_online_prefix("https://tickets.events.ccc.de/media/")
+      .using(chart_single_processor).fetch("chart_single.svg");
+})();
+</script>
+
+</html>
