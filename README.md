@@ -24,4 +24,4 @@ heading. Seems I'm wrong :-(
 Finally, it's also an excuse to have a little fun with JavaScript again, after
 a long time, exercising a bit for things to come :-)
 
-### visit [https://github.com/christophevg/cccc](https://github.com/christophevg/cccc)
+### visit [https://christophevg.github.com/cccc](https://christophevg.github.com/cccc) for the live page
