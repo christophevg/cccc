@@ -46,7 +46,7 @@
   ajax.fetch = function fetch(url) {
     xmlhttp.open("GET", is_local ? url : prefix + url, !is_local);
     xmlhttp.send(null);
-    if( is_local ) {
+    if( is_local() ) {
       if( callback ) {
         callback(xmlhttp.responseText);
       } else {
