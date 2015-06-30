@@ -5,7 +5,7 @@ Christophe VG (<contact@christophe.vg>)
 
 **Done before we even started ;-)** - It seems the svg data is not allowed to be retrieved outside the original domain, so no live updates are possible, and I'm not going to fetch and update the repository with a fresh cache every hour/day/... Too bad ;-/
   
-**BUT...** You can always clone the repo and look at the page locally, because from a local file the same-origin check isn't validated it appears.  
+**BUT...** If you're using Safari (FireFox also blocks it, haven't tested Chrome, but that comes with a command-line switch to disable it it seems, YMMV), you can clone the repo and look at the page locally, because from a local file the same-origin check isn't validated it appears.  
 Minimal survival commands:
 
 ```bash
