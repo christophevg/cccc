@@ -1,6 +1,43 @@
-<html>
-  <script src="js/ajax.js"></script>
-  <script src="js/svg.js"></script>
+<!DOCTYPE html>
+<meta charset="utf-8">
+  <style>
+
+  body, TD, TH, P {
+    font: 10px sans-serif;
+  }
+  
+  TD, TH, P {
+    font-size: 11pt;
+  }
+  
+  TH {
+    font-weight: bold;
+  }
+  
+  table {
+    border-collapse: collapse;
+  }
+
+  table, th, td {
+      border: 1px solid black;
+  }
+  
+  .axis path,
+  .axis line {
+    fill: none;
+    stroke: #000;
+    shape-rendering: crispEdges;
+  }
+
+  .bar {
+    fill: steelblue;
+  }
+
+  .x.axis path {
+    display: none;
+  }
+
+  </style>
 <body>
   <h1>CCCC - Chaos Communication Camp Counter</h1>
   
@@ -50,7 +87,7 @@
   SVG graphs.</p>
   
   <h3>Revenue</h3>
-  <table border="1">
+  <table>
     <thead><tr><th>subject</th><th>&euro;</th></tr></thead>
     <tbody id="table"></tbody>
   </table>
@@ -82,8 +119,13 @@
    de/camp/2015/wiki/Static:Tickets</a>) gives an overview of the tickets
   categories and their pricing:</p>
   
-  <table border="1">
-    <thead><tr><th>category</th><th>price</th><th>lower</th><th>upper</th></tr></thead>
+  <table>
+    <thead>
+      <tr>
+        <th>category</th><th>price</th>
+        <th>lower</th><th>upper</th>
+      </tr>
+    </thead>
     <tbody>
       <tr>
         <th>Low budget</th><td>&euro;180, &euro;200</td>
@@ -117,9 +159,26 @@
   range <b>between <span id="interval-minimum-text"></span> and <span
   id="interval-maximum-text"></span></b>.</p>
   
+  <h2>Graphs!!!</h2>
+  
+  <p>Doing all this for the final number of campers is fun, but seeing tickets
+  sales evolve over time surely beats it ;-) I've taken the average of the
+  upper and lower boundaries of the estimated interval. The X-axis represents
+  the hours past the opening of the ticket shop.</p>
+
+  <div id="graph"></div>
+  
+  <p><b>NOTE:</b> I assume that the camp's organisation is manually updating
+  the orders every 24 hours, which explains the large jump after the first 24
+  hours :-)</p>
+
   <p><i>more to come...</i></p>
   
 </body>
+
+<script src="js/ajax.js"></script>
+<script src="js/svg.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script>
 
 <script>
 (function() {
@@ -265,6 +324,8 @@
     compute_ticket_boundaries();
 
     render_category_intervals();
+    
+    render_graph();
   }
   
   function compute_category_intervals() {
@@ -321,6 +382,121 @@
         document.createTextNode(tickets_bounds["maximum"][last])
       );    
     }
+  }
+  
+  function render_graph() {
+    var margin = {top: 20, right: 20, bottom: 30, left: 40},
+        width = 960 - margin.left - margin.right,
+        height = 500 - margin.top - margin.bottom;
+
+    var x = d3.scale.ordinal()
+        .rangeRoundBands([0, width], .1);
+
+    var y = d3.scale.linear()
+        .rangeRound([height, 0]);
+
+    var color = d3.scale.ordinal()
+        .range(["#98abc5", "#8a89a6", "#7b6888", "#6b486b" ]);
+
+    var xAxis = d3.svg.axis()
+        .scale(x)
+        .orient("bottom");
+
+    var yAxis = d3.svg.axis()
+        .scale(y)
+        .orient("left")
+        .tickFormat(d3.format(".2s"));
+
+    var svg = d3.select("#graph").append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    // CSV
+    // series, Low Budget, Standard, Supporter, Business
+    // 0, ...
+    // 1, ...
+
+    // DATA
+    // [ { hour: "+0", "serie": x, ... } ]
+    
+    var data = [];
+    for(var i=0; i<tickets["serie-1"]["lower"].length; i++) {
+      var d = { "hour" : "+" + i };
+      for(var serie in tickets ) {
+        d[labels[serie]] = Math.ceil( (  tickets[serie]["lower"][i]
+                                       + tickets[serie]["upper"][i]) / 2);
+      }
+      data.push(d);
+    }
+    
+    color.domain(d3.keys(data[0]).filter(function(key) {
+      return key !== "hour";
+    }));
+
+    data.forEach(function(d) {
+      var y0 = 0;
+      d.amount = color.domain().map(function(name) {
+        return {name: name, y0: y0, y1: y0 += +d[name]};
+      });
+      d.total  = d.amount[d.amount.length - 1].y1;
+    });
+
+    x.domain(data.map(function(d) { return d.hour; }));
+    y.domain([0, d3.max(data, function(d) { return d.total; })]);
+
+    svg.append("g")
+        .attr("class", "x axis")
+        .attr("transform", "translate(0," + height + ")")
+        .call(xAxis);
+
+    svg.append("g")
+        .attr("class", "y axis")
+        .call(yAxis)
+      .append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 6)
+        .attr("dy", ".71em")
+        .style("text-anchor", "end")
+        .text("Population");
+
+    var state = svg.selectAll(".state")
+        .data(data)
+      .enter().append("g")
+        .attr("class", "g")
+        .attr("transform", function(d) {
+          return "translate(" + x(d.hour) + ",0)";
+        });
+
+    state.selectAll("rect")
+        .data(function(d) { return d.amount; })
+      .enter().append("rect")
+        .attr("width", x.rangeBand())
+        .attr("y", function(d) { return y(d.y1); })
+        .attr("height", function(d) { return y(d.y0) - y(d.y1); })
+        .style("fill", function(d) { return color(d.name); });
+
+    var legend = svg.selectAll(".legend")
+        .data(color.domain().slice().reverse())
+      .enter().append("g")
+        .attr("class", "legend")
+        .attr("transform", function(d, i) {
+          return "translate(-800," + i * 20 + ")";
+        });
+
+    legend.append("rect")
+        .attr("x", width - 18)
+        .attr("width", 18)
+        .attr("height", 18)
+        .style("fill", color);
+
+    legend.append("text")
+        .attr("x", width - 24)
+        .attr("y", 9)
+        .attr("dy", ".35em")
+        .style("text-anchor", "end")
+        .text(function(d) { return d; });
   }
 
   Ajax.with_online_prefix("https://tickets.events.ccc.de/media/")
