@@ -3,6 +3,18 @@
 Christophe VG (<contact@christophe.vg>)  
 [https://github.com/christophevg/cccc](https://github.com/christophevg/cccc)
 
+**Done before we even started ;-)** - It seems the svg data is not allowed to be retrieved outside the original domain, so no live updates are possible, and I'm not going to fetch and update the repository with a fresh cache every hour/day/... Too bad ;-/
+  
+**BUT...** You can always clone the repo and look at the page locally, because from a local file the same-origin check isn't validated it appears.  
+Minimal survival commands:
+
+```bash
+$ git clone https://github.com/christophevg/cccc.git
+$ cd cccc
+$ git checkout gh-pages
+$ open index.html
+```
+
 ## Introduction
 
 This is just a little bit of fun, trying to compute the number of hackers that
@@ -23,5 +35,3 @@ heading. Seems I'm wrong :-(
   
 Finally, it's also an excuse to have a little fun with JavaScript again, after
 a long time, exercising a bit for things to come :-)
-
-### visit [https://christophevg.github.com/cccc](https://christophevg.github.com/cccc) for the live page
