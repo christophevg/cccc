@@ -56,9 +56,9 @@
   
   ajax.fetch = function fetch(url) {
     // if(is_local()) {
-    //   return fetch_local(url);
+      return fetch_local(url);
     // } else {
-      return fetch_live(url);
+    //   return fetch_live(url);
     // }
   }
   
