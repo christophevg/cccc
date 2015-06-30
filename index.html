@@ -211,7 +211,9 @@
   function compute_and_render_ticket_revenue() {
     for(var serie in labels) {
       // yeah, could have done this before, but the loop is small ;-)
-      ticket_revenue += values[serie];
+      if(labels[serie] != "merchandise") {
+        ticket_revenue += values[serie];        
+      }
     }
     var total_text = document.createTextNode(ticket_revenue);
     document.getElementById("total-ticket-revenue").appendChild(total_text);
