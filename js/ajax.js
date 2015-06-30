@@ -20,18 +20,30 @@
         } else {
           alert("Your browser does not support XMLHTTP!");
         }
-        
-        if(! is_local) {
-          xmlhttp.onreadystatechange = function() {
-            if (xmlhttp.readyState==4 && xmlhttp.status==200) {
-              if(callback != null) { callback(xmlhttp.responseText); }
-            }
-          }
+      },
+      
+      fetch_local = function fetch_local(url) {
+        xmlhttp.open("GET", url, false);
+        xmlhttp.send(null);
+        if( callback ) {
+          callback(xmlhttp.responseText);
+        } else {
+          return xmlhttp.responseText;
         }
       },
+      
+      fetch_live = function fetch_live(url) {
+        xmlhttp.onreadystatechange = function() {
+          if (xmlhttp.readyState==4 && xmlhttp.status==200) {
+            if(callback != null) { callback(xmlhttp.responseText); }
+          }
+        }
+        xmlhttp.open("GET", prefix + url, true);
+        xmlhttp.send(null);
+      },
         
-  // exposing our namespace
-  ajax = globals.Ajax = {};
+      // exposing our namespace
+      ajax = globals.Ajax = {};
 
   ajax.with_online_prefix = function with_online_prefix(new_prefix) {
     prefix = new_prefix;
@@ -44,14 +56,10 @@
   }
   
   ajax.fetch = function fetch(url) {
-    xmlhttp.open("GET", is_local ? url : prefix + url, !is_local);
-    xmlhttp.send(null);
-    if( is_local() ) {
-      if( callback ) {
-        callback(xmlhttp.responseText);
-      } else {
-        return xmlhttp.responseText;
-      }
+    if(is_local()) {
+      return fetch_local(url);
+    } else {
+      return fetch_live(url);
     }
   }
   
