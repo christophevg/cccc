@@ -65,8 +65,48 @@
   
   <p>But different ticket prices are in effect. The goal is to allow those who
   can to <i>chip</i> a bit for those who can't. I think that's commendable. But
-  it also means that some payments count for more tickets. Let's start with
+  it also means that some payments count for less tickets. Let's start with
   taking into account the categories and come up with an interval.</p>
+  
+  <p>The following table (as also shown in <a
+  href="https://events.ccc.de/camp/2015/wiki/Static:Tickets">https://events.ccc.
+   de/camp/2015/wiki/Static:Tickets</a>) gives an overview of the tickets
+  categories and their pricing:</p>
+  
+  <table border="1">
+    <thead><tr><th>category</th><th>price</th><th>lower</th><th>upper</th></tr></thead>
+    <tbody>
+      <tr>
+        <th>Low budget</th><td>&euro;180, &euro;200</td>
+        <td id="low-budget-lower"></td><td id="low-budget-upper"></td>
+      </tr>
+      <tr>
+        <th>Standard</th><td>&euro;220</td>
+        <td colspan="2" id="standard-amount"></td>
+      </tr>
+      <tr>
+        <th>Supporter</th><td>&euro;240, &euro;260, &euro;280, &euro;300</td>
+        <td id="supporter-lower"></td><td id="supporter-upper"></td>
+      </tr>
+      <tr>
+        <th>Business</th><td>&euro;450, &euro;60, &euro;750</td>
+        <td id="business-lower"></td><td id="business-upper"></td>
+      </tr>
+      <tr>
+        <th>&nbsp;</th><td>&nbsp;</td>
+        <td id="interval-minimum-table"></td><td id="interval-maximum-table"></td>
+      </tr>
+    </tbody>
+  </table>
+  
+  <p>The two additional columns, provide the lower and upper bound of the
+  interval of possible ticket sales given the prices. These numbers allow us to
+  add the lower and upper bounds to come up with a minimum and maximum number
+  of campers.</p>
+  
+  <p>Taking the categories into account, the amount of campers to expect can
+  range <b>between <span id="interval-minimum-text"></span> and <span
+  id="interval-maximum-text"></span></b>.</p>
   
   <p><i>more to come...</i></p>
   
@@ -91,11 +131,12 @@
       var label;
       label = legends[i].getElementsByTagName("title");
       if(label.length > 0) {
-        label = label[0].textContent;
+        label = label[0].textContent;        
       } else { 
-        label = legends[i].getElementsByTagName("text")[0].textContent;
+        label = legends[i].getElementsByTagName("text")[0].textContent
       }
-      labels[serie] = label;
+      labels[serie] = label.toLowerCase()
+                           .replace(" ", "-");
     }
 
     // get most recent value
@@ -133,7 +174,8 @@
     render_totals_table();
     render_avg_ticket_price();
     compute_and_render_ticket_revenue();
-    compute_and_render_rought_estimate();
+    compute_and_render_rough_estimate();
+    compute_and_render_category_intervals();
   }
 
   function render_totals_table() {
@@ -168,12 +210,51 @@
     document.getElementById("total-ticket-revenue").appendChild(total_text);
   }
 
-  function compute_and_render_rought_estimate() {
+  function compute_and_render_rough_estimate() {
     var rough_estimate = Math.ceil(ticket_revenue / avg_ticket_price);
     var rough_estimate_text = document.createTextNode(rough_estimate);
     document.getElementById("rough-estimate").appendChild(rough_estimate_text);
   }
+  
+  var pricing = {
+    "low-budget": [ 180, 200 ],
+    "standard":   [ 220 ],
+    "supporter":  [ 240, 260, 280, 300 ],
+    "business":   [ 450, 600, 750 ]
+  };
 
+  function compute_and_render_category_intervals() {
+    var minimum = 0, maximum = 0;
+    for(var serie in labels) {
+      if(labels[serie] == "merchandise") { continue; }
+      var min = Math.min.apply(null, pricing[labels[serie]]),
+          max = Math.max.apply(null, pricing[labels[serie]]),
+          lower = Math.floor(values[serie] / max),
+          upper = Math.floor(values[serie] / min);
+      minimum += lower;
+      maximum += upper;    
+      if(labels[serie] == "standard") {
+        document.getElementById(labels[serie] + "-amount").appendChild(
+          document.createTextNode(lower)
+        );
+      } else {
+        document.getElementById(labels[serie] + "-lower").appendChild(
+          document.createTextNode(lower)
+        );
+        document.getElementById(labels[serie] + "-upper").appendChild(
+          document.createTextNode(upper)
+        );
+      }
+    }
+    for(var loc in { "table":0, "text": 0}) {
+      document.getElementById("interval-minimum-"+loc).appendChild(
+        document.createTextNode(minimum)
+      );    
+      document.getElementById("interval-maximum-"+loc).appendChild(
+        document.createTextNode(maximum)
+      );    
+    }
+  }
 
   Ajax.with_online_prefix("https://tickets.events.ccc.de/media/")
       .using(chart_single_processor).fetch("chart_single.svg");
