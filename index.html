@@ -124,45 +124,60 @@
 <script>
 (function() {
   
-  var labels = {};  // mapping serie-x : label
-  var values = {};  // mapping serie-x : value
+  var labels           = {};  // { serie-x : label }
+  var revenues         = {};  // { serie-x : [value] } // cummulative values
+  var ticket_revenues  = [];  // [value]
 
-  var avg_ticket_price = 0;
-  var ticket_revenue   = 0;
+  var avg_ticket_price = [];  // [value]
+
+  var tickets          = {};  // { serie-x : { upper: [value], lower: [value] }}
+  var tickets_bounds   = { "minimum": [], "maximum": [] };
 
   function chart_single_processor(svg) {
     var doc = Svg.parse(svg);
-    
-    // extract series from legend
+
+    // process this graph's data
+    extract_series_labels(doc);
+    extract_series_revenues(doc);
+
+    // continue with the average ticket price
+    Ajax.using(chart_avg_processor).fetch("chart_avg.svg");
+  }
+  
+  function extract_series_labels(doc) {
+    // fill labels[serie-x] = label
     var legends = doc.getElementsByClassName("legend reactive activate-serie");
     for(var i=0; i<legends.length; i++) {
       var serie = legends[i].id.replace("activate-", "");
-      var label;
-      label = legends[i].getElementsByTagName("title");
-      if(label.length > 0) {
-        label = label[0].textContent;        
-      } else { 
-        label = legends[i].getElementsByTagName("text")[0].textContent
-      }
-      labels[serie] = label.toLowerCase()
-                           .replace(" ", "-");
+      var label = legends[i].getElementsByTagName("title");
+      if(label.length <= 0) { label = legends[i].getElementsByTagName("text"); }
+      labels[serie] = label[0].textContent
+                              .toLowerCase()
+                              .replace(" ", "-");
     }
-
-    // get most recent value
-    var overlays = doc.getElementsByClassName("plot overlay")[0]
-                      .getElementsByClassName("series");
-    for(var i=0; i<overlays.length; i++) {
-      // -> let's believe the series are named serie-x ;-)
-      var serie = overlays[i].className.baseVal.match(/serie-[0-9]/)[0];
-      var dots  = overlays[i].getElementsByClassName("dots");
-      // only last value -> let's believe that they are ordered ;-)
-      values[serie] = parseInt(
-        dots[dots.length-1].getElementsByClassName("value")[0].textContent
-      );
+  }
+  
+  function extract_series_revenues(doc) {
+    // fill revenues[] = { serie: [revenues] }
+    var series = doc.getElementsByClassName("plot overlay")[0]
+                    .getElementsByClassName("series");
+    for(var i=0; i<series.length; i++) {
+      extract_revenues(series[i])
     }
+  }
+  
+  function extract_revenues(series) {
+    // -> let's believe the series are named serie-x ;-)
+    var id = series.className.baseVal.match(/serie-[0-9]/)[0];
+    // dots is the actual series
+    var dots  = series.getElementsByClassName("dots");
 
-    // now get rest of data
-    Ajax.using(chart_avg_processor).fetch("chart_avg.svg");
+    revenues[id] = [];
+    for(var i=0; i<dots.length;i++) {
+      revenues[id].push( parseInt(
+        dots[i].getElementsByClassName("value")[0].textContent
+      ));
+    }
   }
   
   function chart_avg_processor(svg) {
@@ -171,9 +186,11 @@
     var series = doc.getElementsByClassName("plot overlay")[0]
                     .getElementsByClassName("series")[0]
                     .getElementsByClassName("dots");
-    avg_ticket_price = parseFloat(
-      series[series.length-1].getElementsByClassName("value")[0].textContent
-    );
+    for(var i=0; i<series.length;i++) {
+      avg_ticket_price.push( parseFloat(
+        series[i].getElementsByClassName("value")[0].textContent
+      ));
+    }
   
     // now compute and render results
     process_data();
@@ -190,12 +207,13 @@
   function render_totals_table() {
     // render table
     var table = document.getElementById("table");
-    for(var serie in labels) {
+    for(var serie in revenues) {
       var row        = document.createElement("TR"),
           label_cell = document.createElement("TD"),
           label_text = document.createTextNode(labels[serie]),
           value_cell = document.createElement("TD"),
-          value_text = document.createTextNode(values[serie]);
+          last       = revenues[serie].length - 1,
+          value_text = document.createTextNode(revenues[serie][last]);
       label_cell.appendChild(label_text);
       value_cell.appendChild(value_text);
       row.appendChild(label_cell);
@@ -205,26 +223,32 @@
   }
   
   function render_avg_ticket_price() {
-    var avg_ticket_price_text = document.createTextNode(avg_ticket_price);
+    var last = avg_ticket_price.length - 1;
     document.getElementById("avg-ticket-price")
-            .appendChild(avg_ticket_price_text);
+            .appendChild(
+              document.createTextNode(avg_ticket_price[last])
+            );
   }
   
   function compute_and_render_ticket_revenue() {
-    for(var serie in labels) {
-      // yeah, could have done this before, but the loop is small ;-)
-      if(labels[serie] != "merchandise") {
-        ticket_revenue += values[serie];        
+    var total;
+    for(var i=0; i<revenues["serie-1"].length; i++) {
+      total = 0;
+      for(var serie in labels) {
+        if(labels[serie] == "merchandise") { continue; }
+        total += revenues[serie][i];
       }
+      ticket_revenues.push(total);
     }
-    var total_text = document.createTextNode(ticket_revenue);
+    var total_text = document.createTextNode(total);
     document.getElementById("total-ticket-revenue").appendChild(total_text);
   }
 
   function compute_and_render_rough_estimate() {
-    var rough_estimate = Math.ceil(ticket_revenue / avg_ticket_price);
-    var rough_estimate_text = document.createTextNode(rough_estimate);
-    document.getElementById("rough-estimate").appendChild(rough_estimate_text);
+    var last          = ticket_revenues.length - 1,
+        estimate      = ticket_revenues[last] / avg_ticket_price[last],
+        estimate_text = document.createTextNode(Math.ceil(estimate));
+    document.getElementById("rough-estimate").appendChild(estimate_text);
   }
   
   var pricing = {
@@ -236,33 +260,65 @@
 
   function compute_and_render_category_intervals() {
     var minimum = 0, maximum = 0;
+
+    compute_category_intervals();
+    compute_ticket_boundaries();
+
+    render_category_intervals();
+  }
+  
+  function compute_category_intervals() {
     for(var serie in labels) {
       if(labels[serie] == "merchandise") { continue; }
-      var min = Math.min.apply(null, pricing[labels[serie]]),
-          max = Math.max.apply(null, pricing[labels[serie]]),
-          lower = Math.floor(values[serie] / max),
-          upper = Math.floor(values[serie] / min);
-      minimum += lower;
-      maximum += upper;    
+
+      var min   = Math.min.apply(null, pricing[labels[serie]]),
+          max   = Math.max.apply(null, pricing[labels[serie]]),
+          lower = [],
+          upper = [];
+      for(var i=0; i<revenues[serie].length; i++) {
+        lower.push(Math.floor(revenues[serie][i] / max));
+        upper.push(Math.floor(revenues[serie][i] / min));
+      }
+      tickets[serie] = { "lower": lower, "upper": upper };
+    }
+  }
+  
+  function compute_ticket_boundaries() {
+    for(var i=0;i<tickets["serie-1"]["lower"].length; i++) {
+      var minimum = 0, maximum = 0;
+      for(var serie in tickets) {
+        minimum += tickets[serie]["lower"][i];
+        maximum += tickets[serie]["upper"][i];
+      }
+      tickets_bounds["minimum"].push(minimum);
+      tickets_bounds["maximum"].push(maximum);
+    }
+  }
+  
+  function render_category_intervals() {
+    for(var serie in tickets) {
+      var last = tickets[serie]["lower"].length - 1;
       if(labels[serie] == "standard") {
         document.getElementById(labels[serie] + "-amount").appendChild(
-          document.createTextNode(lower)
+          document.createTextNode(tickets[serie]["lower"][last])
         );
       } else {
         document.getElementById(labels[serie] + "-lower").appendChild(
-          document.createTextNode(lower)
+          document.createTextNode(tickets[serie]["lower"][last])
         );
         document.getElementById(labels[serie] + "-upper").appendChild(
-          document.createTextNode(upper)
+          document.createTextNode(tickets[serie]["upper"][last])
         );
       }
     }
+
+    // totals = minimum and maximum
     for(var loc in { "table":0, "text": 0}) {
       document.getElementById("interval-minimum-"+loc).appendChild(
-        document.createTextNode(minimum)
+        document.createTextNode(tickets_bounds["minimum"][last])
       );    
       document.getElementById("interval-maximum-"+loc).appendChild(
-        document.createTextNode(maximum)
+        document.createTextNode(tickets_bounds["maximum"][last])
       );    
     }
   }
