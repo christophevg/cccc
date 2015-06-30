@@ -55,6 +55,7 @@
   }
   
   ajax.fetch = function fetch(url) {
+    console.log(window.location.protocol.slice(0, 4) != "http", is_local());
     if(is_local()) {
       return fetch_local(url);
     } else {
