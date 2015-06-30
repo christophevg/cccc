@@ -5,8 +5,7 @@
       prefix   = "",
   
       is_local = function is_local() {
-        return !(   window.location.protocol == "http"
-                 || window.location.protocol == "https" );
+        return window.location.protocol.slice(0, 4) != "http";
       },
   
       init = function init() {
@@ -56,7 +55,6 @@
   }
   
   ajax.fetch = function fetch(url) {
-    console.log(window.location.protocol, is_local());
     if(is_local()) {
       return fetch_local(url);
     } else {
