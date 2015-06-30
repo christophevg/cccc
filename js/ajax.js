@@ -56,6 +56,7 @@
   }
   
   ajax.fetch = function fetch(url) {
+    console.log(window.location.protocol, is_local());
     if(is_local()) {
       return fetch_local(url);
     } else {
