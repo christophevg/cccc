@@ -66,14 +66,13 @@
   it, so ...</p>
 
   <p>I still had a local copy of one of the early hours, which I've added to
-  the repository. This way to page at least still shows something ;-) Right
-  before the change was introduced, the graph looked like this...<br>
-  <img width="900" src="media/31hours.png"><br>  
-  Showing the wonderful take of of the ticket sales, with about 1400 campers
-  having claimed their spot for this unique event.
-  <b>NOTE:</b> I assume that the camp's organisation is manually updating
-  the orders every 24 hours, which explains the large jump after the first 24
-  hours :-)</p>
+  the repository.</p>
+  
+  <p><b>IMPORTANT NOTE:</b> I made a stupid mistake, not seeing that the
+  revenue data was already stacked initially, meaning that all ticket revenue
+  values I was using were including the previous revenues, and therefore way
+  too high. I can't reproduce the nice graph of ~30 hours past the opening of
+  the ticket shop, but I've fixed the parsing of the snapshot data below.</p>
 
   <p><b>So, the remaining analysis below this line, only deals with a snapshot,
   taken about 6 hours after the opening of the ticket shop.</b></p>
@@ -236,6 +235,19 @@
                     .getElementsByClassName("series");
     for(var i=0; i<series.length; i++) {
       extract_revenues(series[i])
+    }
+    // these revenues are stacked already, so we need to remove them again :-(
+    for(var serie1 in revenues) {  // remove this from every following
+      var active = false;
+      for(var serie2 in revenues) {
+        if(!active) {
+          active = serie1 == serie2;
+          continue;
+        }
+        for(var i=0; i<revenues[serie1].length; i++) {
+          revenues[serie2][i] -= revenues[serie1][i];
+        }
+      }
     }
   }
   
