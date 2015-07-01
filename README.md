@@ -16,13 +16,7 @@ $ open index.html
 ```
 **And then things go pitch black :-)** - About 32 hours after the opening of the ticket shop, the target graphs were apparently reformatted to no longer include overlays with numeric values. Coincidence? I don't care :-) But this makes it nearly impossible to extract interesting information from it, so ...
 
-I still had a local copy of one of the early hours, which I've added to the repository. This way to page at least still shows something ;-) Right before the change was introduced, the graph looked like this...
-
-<img src="media/31hours.png">
-
-...showing the wonderful take-off of the ticket sales, with about 1400 campers having claimed their spot for this unique event.
-
-**NOTE:** I assume that the camp's organisation is manually updating the orders every 24 hours, which explains the large jump after the first 24 hours :-)
+I still had a local copy of one of the early hours, which I've added to the repository.
 
 ## Introduction
 
