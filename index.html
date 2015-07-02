@@ -41,44 +41,6 @@
 <body>
   <h1>CCCC - Chaos Communication Camp Counter</h1>
   
-  <p><b>Done before we even started ;-)</b> - It seems the svg data is not
-  allowed to be retrieved outside the original domain, so no live updates are
-  possible, and I'm not going to fetch and update the repository with a fresh
-  cache every hour/day/... Too bad ;-/</p>
-  
-  <p><b>BUT...</b> If you're using Safari (FireFox also blocks it, haven't
-  tested Chrome, but that comes with a command-line switch to disable it it
-  seems, YMMV), you can clone the repo and look at the page locally, because
-  from a local file the same-origin check isn't validated it
-  appears.<br>Minimal survival commands:
-<pre>
-  $ git clone https://github.com/christophevg/cccc.git
-  $ cd cccc
-  $ git checkout gh-pages
-  $ open index.html
-</pre>
-</p>
-
-  <p><b>And then things go pitch black :-)</b> - About 32 hours after the
-  opening of the ticket shop, the target graphs were apparently reformatted to
-  no longer include overlays with numeric values. Coincidence? I don't care :-)
-  But this makes it nearly impossible to extract interesting information from
-  it, so ...</p>
-
-  <p>I still had a local copy of one of the early hours, which I've added to
-  the repository.</p>
-  
-  <p><b>IMPORTANT NOTE:</b> I made a stupid mistake, not seeing that the
-  revenue data was already stacked initially, meaning that all ticket revenue
-  values I was using were including the previous revenues, and therefore way
-  too high. I can't reproduce the nice graph of ~30 hours past the opening of
-  the ticket shop, but I've fixed the parsing of the snapshot data below.</p>
-
-  <p><b>So, the remaining analysis below this line, only deals with a snapshot,
-  taken about 6 hours after the opening of the ticket shop.</b></p>
-  
-  <hr>
-
   <p>This is just a little bit of fun, trying to compute the number of hackers
   that will roam <a href="https://events.ccc.de/camp/2015">CCC15</a>. Based on
   the information found in the <a
@@ -100,7 +62,38 @@
   <p>Finally, it's also an excuse to have a little fun with JavaScript again,
   after a long time, exercising a bit for things to come :-)</p>
 
-  <h2>Data</h2>
+  <h2>A word on <a href="https://en.wikipedia.org/wiki/Cross-origin_resource_sharing">CORS</a></h2>
+
+  <p>I intended this page to be a dynamic add-on to the existing graphs. It was
+  a while since I did some web development, and back in <i>my</i> days, you
+  could just GET everything you had access to. POST was restricted because
+  allowing this to go cross-[page,request,origin,...] could lead to problems.
+  But GET ... not ... until today.</p>
+
+  <p><b>Done before we even started ;-)</b> - It seems however that the SVG
+  data is not allowed to be retrieved outside the original domain on its own,
+  thanks to browsers honoring CORS headers. So no live updates are possible,
+  and I'm not going to fetch and update the repository with a fresh cache every
+  hour/day/... Too bad ;-/</p>
+  
+  <p>Personally, I find this a bit weird, to present data in a webpage, but
+  restrict it to that webpage. Other people clearly think differently, and I'm
+  very interested to find out why.</p>
+  
+  <p><b>BUT...</b> If you're using Safari (FireFox also blocks it, haven't
+  tested Chrome, but that comes with a command-line switch to disable it it
+  seems, YMMV), you can clone the repo and look at the page locally, because
+  from a local file the same-origin check isn't validated it
+  appears.<br>Minimal survival commands:
+  <pre>
+    $ git clone https://github.com/christophevg/cccc.git
+    $ cd cccc
+    $ git checkout gh-pages
+    $ open index.html
+  </pre>
+  </p>
+  
+  <h2>On to the Data</h2>
 
   <p>The following tables contain the latest data, extracted from the published
   SVG graphs.</p>
@@ -108,7 +101,7 @@
   <h3>Revenue</h3>
   <table>
     <thead><tr><th>subject</th><th>&euro;</th></tr></thead>
-    <tbody id="table"></tbody>
+    <tbody id="table" align="right"></tbody>
   </table>
   
   <h3>Average Ticket Price...</h3>
@@ -148,23 +141,27 @@
     <tbody>
       <tr>
         <th>Low budget</th><td>&euro;180, &euro;200</td>
-        <td id="low-budget-lower"></td><td id="low-budget-upper"></td>
+        <td id="low-budget-lower" align="right"></td>
+        <td id="low-budget-upper" align="right"></td>
       </tr>
       <tr>
         <th>Standard</th><td>&euro;220</td>
-        <td colspan="2" id="standard-amount"></td>
+        <td colspan="2" id="standard-amount" align="center"></td>
       </tr>
       <tr>
         <th>Supporter</th><td>&euro;240, &euro;260, &euro;280, &euro;300</td>
-        <td id="supporter-lower"></td><td id="supporter-upper"></td>
+        <td id="supporter-lower" align="right"></td>
+        <td id="supporter-upper" align="right"></td>
       </tr>
       <tr>
         <th>Business</th><td>&euro;450, &euro;60, &euro;750</td>
-        <td id="business-lower"></td><td id="business-upper"></td>
+        <td id="business-lower" align="right"></td>
+        <td id="business-upper" align="right"></td>
       </tr>
       <tr>
         <th>&nbsp;</th><td>&nbsp;</td>
-        <td id="interval-minimum-table"></td><td id="interval-maximum-table"></td>
+        <td id="interval-minimum-table" align="right"></td>
+        <td id="interval-maximum-table" align="right"></td>
       </tr>
     </tbody>
   </table>
@@ -186,6 +183,10 @@
   the hours past the opening of the ticket shop.</p>
 
   <div id="graph"></div>
+  
+  <p><b>NOTE:</b> The big jumps in the graph are probably because the
+  organization updates its bank statements every day, adding all processed back
+  transfers of that day on one go.</p>
 
 </body>
 
@@ -204,13 +205,14 @@
 
   var tickets          = {};  // { serie-x : { upper: [value], lower: [value] }}
   var tickets_bounds   = { "minimum": [], "maximum": [] };
-
+  
   function chart_single_processor(svg) {
     var doc = Svg.parse(svg);
 
     // process this graph's data
     extract_series_labels(doc);
-    extract_series_revenues(doc);
+    var p = determine_y_conversion_function_parameters(doc);
+    extract_series_revenues(doc, p);
 
     // continue with the average ticket price
     Ajax.using(chart_avg_processor).fetch("chart_avg.svg");
@@ -227,15 +229,57 @@
                               .toLowerCase()
                               .replace(" ", "-");
     }
+    // console.log("labels", labels);
   }
   
-  function extract_series_revenues(doc) {
-    // fill revenues[] = { serie: [revenues] }
-    var series = doc.getElementsByClassName("plot overlay")[0]
-                    .getElementsByClassName("series");
-    for(var i=0; i<series.length; i++) {
-      extract_revenues(series[i])
+  function determine_y_conversion_function_parameters(doc) {
+    // use grid lines to compute parameters of function
+    // v = (y0 - y) * s + v0
+    // with v is graph-based value
+    //      v0 is the lowest value represented
+    //      y0 the graph-based y-value representing zero
+    //      s the scale factor to apply to bring graph-based values to real ones
+    //        = dv / dy
+    //        with dy = the distance between two reference points on the graph
+    //             dv = the distnce in value between those two same points
+    var guides = doc.getElementsByClassName("axis y")[0]
+                    .getElementsByClassName("guides");
+    // example guide
+    // <g class="guides">
+    //   <path class="major line" d="M0.000000 141.230769 h306.800000"/>
+    //   <text class="major" x="-5" y="144.030769231">0.0</text>
+    // </g>
+
+    // get value info from two guides
+    var v0 = parseFloat(guides[0].getElementsByTagName("text")[0].textContent),
+        v1 = parseFloat(guides[1].getElementsByTagName("text")[0].textContent),
+        dv = v1 - v0;
+    // get corresponding graph-based y values
+    var y0 = parseFloat(guides[0].getElementsByTagName("path")[0].getAttribute("d").split(" ")[1]),
+        y1 = parseFloat(guides[1].getElementsByTagName("path")[0].getAttribute("d").split(" ")[1]),
+        dy = y0 - y1,
+        s  = dv / dy;
+    
+    return { "y0" : y0, "v0" : v0, "s": s };
+  }
+  
+  // the conversion function for graph-based y-values to revenue values
+  function convert(y, param) {
+    return Math.round((param.y0 - y) * param.s + param.v0);
+  }
+  
+  function extract_series_revenues(doc, p) {
+    // <g class="series serie-0 color-0">
+    //   <path class="line reactive" d="M5.900000 141.230769 L5.900000...
+    // </g>
+
+    // the path consists of an initial point Mx y and Lx y x y ... points
+    // we just want the consecutive y values
+    for(var serie in labels) {
+      if(labels[serie] == "merch") { continue; }
+      revenues[serie] = convert_inc_y_only(extract_series(doc, serie), p);
     }
+    
     // these revenues are stacked already, so we need to remove them again :-(
     for(var serie1 in revenues) {  // remove this from every following
       var active = false;
@@ -249,34 +293,54 @@
         }
       }
     }
-  }
-  
-  function extract_revenues(series) {
-    // -> let's believe the series are named serie-x ;-)
-    var id = series.className.baseVal.match(/serie-[0-9]/)[0];
-    // dots is the actual series
-    var dots  = series.getElementsByClassName("dots");
 
-    revenues[id] = [];
-    for(var i=0; i<dots.length;i++) {
-      revenues[id].push( parseInt(
-        dots[i].getElementsByClassName("value")[0].textContent
-      ));
-    }
+    // console.log("revenues", revenues);
   }
   
+  function extract_series(doc, serie) {
+    return Array.prototype.filter.call(
+      doc.getElementsByClassName("plot"),
+      function(e) { return e.className.baseVal == "plot"; }
+    )[0].getElementsByClassName("series " + serie)[0]
+        .getElementsByTagName("path")[0]
+        .getAttribute("d")
+        .replace("M", "")
+        .replace("L", "")
+        .split(" ");
+  }
+  
+  function convert_inc_y_only(data, p) {
+    var ys = [];
+    var prev = 0;
+    // we take every second value == y-value
+    // as long as it goes UP, because at the end it also describes the path
+    // back to close the fillable shape
+    for(var i=1; i<data.length; i+=2) {
+      var value = convert(parseFloat(data[i]), p);
+      if(value < prev) { break; }
+      ys.push(value);
+      prev = value;
+    }
+    return ys;
+  }
+
+  function convert_y_only(data, p) {
+    var ys = [];
+    // we take every second value == y-value
+    for(var i=1; i<data.length; i+=2) {
+      ys.push(convert(parseFloat(data[i]), p));
+    }
+    return ys;
+  }
+
   function chart_avg_processor(svg) {
     var doc = Svg.parse(svg);
 
-    var series = doc.getElementsByClassName("plot overlay")[0]
-                    .getElementsByClassName("series")[0]
-                    .getElementsByClassName("dots");
-    for(var i=0; i<series.length;i++) {
-      avg_ticket_price.push( parseFloat(
-        series[i].getElementsByClassName("value")[0].textContent
-      ));
-    }
-  
+    var p = determine_y_conversion_function_parameters(doc);
+    avg_ticket_price = convert_y_only(extract_series(doc, "serie-0"), p);
+    
+    // console.log("average ticket prices", avg_ticket_price);
+    
     // now compute and render results
     process_data();
   }
@@ -320,7 +384,7 @@
     for(var i=0; i<revenues["serie-1"].length; i++) {
       total = 0;
       for(var serie in labels) {
-        if(labels[serie] == "merchandise") { continue; }
+        if(labels[serie] == "merch") { continue; }
         total += revenues[serie][i];
       }
       ticket_revenues.push(total);
@@ -356,8 +420,7 @@
   
   function compute_category_intervals() {
     for(var serie in labels) {
-      if(labels[serie] == "merchandise") { continue; }
-
+      if(labels[serie] == "merch") { continue; }
       var min   = Math.min.apply(null, pricing[labels[serie]]),
           max   = Math.max.apply(null, pricing[labels[serie]]),
           lower = [],
@@ -449,7 +512,7 @@
     
     var data = [];
     for(var i=0; i<tickets["serie-1"]["lower"].length; i++) {
-      var d = { "hour" : "+" + i };
+      var d = { "hour" : i + 1 };
       for(var serie in tickets ) {
         d[labels[serie]] = Math.ceil( (  tickets[serie]["lower"][i]
                                        + tickets[serie]["upper"][i]) / 2);
@@ -527,6 +590,7 @@
 
   Ajax.with_online_prefix("https://tickets.events.ccc.de/media/")
       .using(chart_single_processor).fetch("chart_single.svg");
+      
 })();
 </script>
 

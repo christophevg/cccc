@@ -55,11 +55,11 @@
   }
   
   ajax.fetch = function fetch(url) {
-    // if(is_local()) {
+    if(is_local()) {
+      return fetch_live(url);
+    } else {
       return fetch_local(url);
-    // } else {
-    //   return fetch_live(url);
-    // }
+    }
   }
   
   init();
