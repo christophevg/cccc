@@ -184,6 +184,15 @@
 
   <div id="graph"></div>
   
+  <p id="static"><b>NOTE:</b>You're viewing this graph online, so it's data is based on a
+  cached version of the graphs from the ticket shop.</p>
+  
+  <script>
+    if( window.location.protocol.slice(0, 4) != "http" ) {
+      document.getElementById("static").style.display = "none";
+    }
+  </script>
+  
   <p><b>NOTE:</b> The big jumps in the graph are probably because the
   organization updates its bank statements every day, adding all processed back
   transfers of that day on one go.</p>
