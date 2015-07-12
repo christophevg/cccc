@@ -323,13 +323,15 @@
     var ys = [];
     var prev = 0;
     // we take every second value == y-value
-    // as long as it goes UP, because at the end it also describes the path
-    // back to close the fillable shape
+    // we only need half the data points, because the shape is defined using
+    // a polygon that closes itself back along underlying series. so when x 
+    // values are decreasing again, we're on our way back and need to stop
     for(var i=1; i<data.length; i+=2) {
-      var value = convert(parseFloat(data[i]), p);
-      if(value < prev) { break; }
-      ys.push(value);
-      prev = value;
+      var y = convert(parseFloat(data[i]), p);
+      var x = parseFloat(data[i-1]);
+      if(x <= prev) { break; } // when x isn't increasing, we're on our way back
+      ys.push(y);
+      prev = x;
     }
     return ys;
   }
